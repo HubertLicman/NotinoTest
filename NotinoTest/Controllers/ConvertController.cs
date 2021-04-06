@@ -1,6 +1,7 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Logging;
 using Newtonsoft.Json;
+using NotinoTest.Services;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -16,15 +17,15 @@ namespace NotinoTest.Controllers
   [ApiController]
   public class ConvertController : ControllerBase
   {
-    private readonly ILogger<ConvertController> _logger;
-    // Definition for internal In and Out files
-    private static string sourceFileName = Path.Combine(Path.GetTempPath(), "TestDocument1.xml");
-    private static string targetFileName = Path.Combine(Path.GetTempPath(), "TestDocument1.json");
-
-    public ConvertController(ILogger<ConvertController> logger)
+    private readonly IConvertService _service;
+    
+    /// <summary>
+    /// Using Dependancy injection 
+    /// </summary>
+    /// <param name="service">Injected ConvertService</param>
+    public ConvertController(IConvertService service)
     {
-      _logger = logger;
-      CheckSourceTestFile();
+      _service = service;
     }
 
     /// <summary>
@@ -35,18 +36,7 @@ namespace NotinoTest.Controllers
     [Route("[action]")]
     public JsonResult GetJson()
     {
-      try
-      {
-        // Use LINQ to XML for load of source file
-        XElement xmlFromFile = XElement.Load(@sourceFileName);
-        string jsonString = JsonConvert.SerializeObject(xmlFromFile);
-        return new JsonResult(jsonString);
-      }
-      catch (Exception)
-      {
-        throw new WebException("Error on GetJson from server", WebExceptionStatus.RequestCanceled);
-      }
-      
+      return _service.GetJson();
     }
 
     /// <summary>
@@ -56,21 +46,11 @@ namespace NotinoTest.Controllers
     [Route("[action]")]
     public void GetConvertOnServer()
     {
-      try
-      {
-        // Use LINQ to XML for load of source file
-        XElement xmlFromFile = XElement.Load(@sourceFileName);
-        string jsonString = JsonConvert.SerializeObject(xmlFromFile);
-        System.IO.File.WriteAllText(targetFileName, jsonString);
-      }
-      catch (Exception)
-      {
-        throw new WebException("Error on server conversion", WebExceptionStatus.RequestCanceled);
-      }
+      _service.ConvertOnServer();
     }
 
     /// <summary>
-    /// Post XML into server, convert and return result if the conversion
+    /// Receive XML from client, convert and return result if the conversion
     /// </summary>
     /// <param name="request">XML file into request</param>
     /// <returns>Result of the conversion in JSON format</returns>
@@ -85,27 +65,10 @@ namespace NotinoTest.Controllers
     {
       var doc = new XmlDocument();
       doc.Load(request.Content.ReadAsStreamAsync().Result);
-      string jsonString = JsonConvert.SerializeObject(doc);
-      return new JsonResult(jsonString);
+      return _service.XmlToJson(doc);
     }
 
-    /// <summary>
-    /// Check and create source file in defined path
-    /// </summary>
-    private static void CheckSourceTestFile()
-    {
-      if (!System.IO.File.Exists(sourceFileName))
-      {
-        // Create the test file
-        using XmlWriter writer = XmlWriter.Create(sourceFileName);
-        writer.WriteStartElement("Test");
-        writer.WriteElementString("Col1", "Test data 1");
-        writer.WriteElementString("Col2", "Test data 2");
-        writer.WriteElementString("Col3", "Test data 3");
-        writer.WriteEndElement();
-        writer.Flush();
-      }
-    }
+    
   }
 
 
